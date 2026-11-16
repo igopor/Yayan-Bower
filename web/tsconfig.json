@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    // 子配置的 paths 会整体覆盖父级的，所以这里要把两个别名都写全。
+    // 与 vite.config.ts 的 resolve.alias 必须保持一致，改一处就要改另一处。
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shared/*": ["./../shared/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "../shared/**/*.ts"]
+}

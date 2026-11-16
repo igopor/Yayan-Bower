@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── 账号 ─────────────────────────────────────────────
+model User {
+  id        Int       @id @default(autoincrement())
+  phone     String    @unique
+  nickname  String    @default("小雅士")
+  loginType String    @default("mobile") // 为微信登录预留，暂只 mobile
+  createdAt DateTime  @default(now())
+  /// 监护人同意《隐私说明》的时间。面向未成年人收集手机号，留痕是必须的
+  consentAt DateTime?
+
+  sessions  QuizSession[]
+  points    PointRecord[]
+  favorites Favorite[]
+  badges    UserBadge[]
+
+  @@map("user")
+}
+
+// ── 内容：热梗主表（辨析 + 雅词共用） ────────────────
+model Term {
+  id                Int     @id @default(autoincrement())
+  name              String  @unique
+  plainMeaning      String  @default("")
+  heuristicAnalysis String  @default("")
+  isFeatured        Boolean @default(false)
+  sort              Int     @default(0)
+  showInTerms       Boolean @default(true) // 是否进辨析页
+  hasElegant        Boolean @default(false) // 是否有雅词对照
+  status            Int     @default(1)
+
+  elegant   ElegantPair?
+  favorites Favorite[]
+
+  @@index([isFeatured, sort])
+  @@index([showInTerms, sort])
+  @@map("term")
+}
+
+model ElegantPair {
+  id     Int    @id @default(autoincrement())
+  termId Int    @unique
+  word1  String
+  def1   String
+  word2  String
+  def2   String
+
+  term Term @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@map("elegant_pair")
+}
+
+model DailySentence {
+  id      Int    @id @default(autoincrement())
+  seq     Int    @unique
+  content String
+  source  String
+  meaning String
+  themes  String @default("") // 逗号分隔，SQLite 无 Json 类型
+  status  Int    @default(1)
+
+  @@map("daily_sentence")
+}
+
+// ── 内容：情景题库 ──────────────────────────────────
+model QuizQuestion {
+  id            Int     @id @default(autoincrement())
+  seq           Int     @unique
+  scenarioType  String  @default("校园沟通")
+  stem          String
+  optionA       String
+  optionB       String
+  correctOption String // 只允许 A / B
+  isReverse     Boolean @default(false)
+  explanation   String
+  status        Int     @default(1)
+
+  @@map("quiz_question")
+}
+
+model QuizSession {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  total        Int
+  correctCount Int       @default(0)
+  status       String    @default("playing") // playing | finished | abandoned
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items QuizSessionItem[]
+
+  @@index([userId, startedAt])
+  @@map("quiz_session")
+}
+
+model QuizSessionItem {
+  id          Int       @id @default(autoincrement())
+  sessionId   Int
+  seq         Int
+  questionId  Int
+  chosen      String? // 存题库原始位置 A / B（不是屏幕上的位置），null = 超时没选
+  displaySwap Boolean   @default(false) // 该题这次是否左右互换
+  isCorrect   Boolean?
+  /**
+   * 服务端计时的起点。**可空 = 这道题还没开始做**。
+   * 不能像原计划那样建表时就写好：服务端不知道用户什么时候点「下一题」，
+   * 若创建时统一写 now，第 5 题会被算成用了 2 分钟，必然判超时。
+   * 现在由前端进入某题时调一次 `/start` 打时间戳，且只打一次（防重置计时）。
+   */
+  servedAt    DateTime?
+  answeredAt  DateTime?
+
+  session QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, seq])
+  @@map("quiz_session_item")
+}
+
+// ── 积分内核 ────────────────────────────────────────
+model PointRecord {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  bizType      String // TERM_VIEW | ELEGANT_VIEW | FAVORITE | QUIZ_FINISH | QUIZ_PERFECT | DAILY_CHECKIN | STREAK_BONUS
+  bizId        String // 业务主键，用于幂等
+  delta        Int
+  balanceAfter Int
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bizType, bizId]) // 幂等键：同一业务只发一次
+  @@index([userId, createdAt])
+  @@map("point_record")
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  termId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  term Term @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, termId])
+  @@index([userId, createdAt])
+  @@map("favorite")
+}
+
+model UserBadge {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  badgeCode  String
+  unlockedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeCode])
+  @@map("user_badge")
+}

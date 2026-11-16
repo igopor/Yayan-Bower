@@ -1,0 +1,36 @@
+node_modules/
+dist/
+*.log
+
+# SQLite 数据库文件（本地数据，不进版本库）
+server/prisma/*.db
+server/prisma/*.db-journal
+server/prisma/*.db-wal
+server/prisma/*.db-shm
+
+# 环境变量：示例文件入库，真实 .env 不入库
+.env
+!.env.example
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 素材与临时产物
+tools/__pycache__/
+
+# 截图与无头浏览器 profile（tools/shot.mjs 的产物，随时可删）
+.shots/
+
+# WorkBuddy 会话数据（含临时工具、二维码、cloudflared.exe 等，动辄几十 MB）
+.workbuddy/
+
+# 临时下载的可执行文件
+*.exe
+
+# 部署时的数据库备份（docs/部署手册.md 里 cp 出来的那份）
+backups/
+*.db.bak

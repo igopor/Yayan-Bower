@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 设计 token：改这里 = 改全站 ───────────────── */
+/* 颜色写成 RGB 三段值，是为了让 Tailwind 的透明度修饰可用（bg-primary/10 等） */
+:root {
+  --c-primary: 74 144 217; /* 浅蓝，主色 #4A90D9 */
+  --c-primary-deep: 54 112 173; /* #3670AD */
+  --c-primary-soft: 232 241 251; /* #E8F1FB 主色淡背景 */
+  --c-bg: 250 247 242; /* #FAF7F2 米白，页面底色 */
+  --c-surface: 255 255 255; /* #FFFFFF 卡片面 */
+  --c-ink: 44 62 80; /* #2C3E50 正文 */
+  --c-ink-weak: 123 138 153; /* #7B8A99 次要文字 */
+  --c-line: 230 225 216; /* #E6E1D8 分隔线 */
+  --c-accent: 242 166 90; /* #F2A65A 暖橙，积分/徽章 */
+  --c-ok: 76 175 136; /* #4CAF88 */
+  --c-bad: 224 112 112; /* #E07070 */
+
+  --r-card: 16px;
+  --r-btn: 12px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-size: 16px; /* 正文基准 16px，不小于此值 */
+  }
+  /* 触控区最小尺寸，避免手机点不准 */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card bg-surface p-4 shadow-card;
+  }
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-btn px-4 text-base font-medium transition active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-deep disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-surface text-ink hover:bg-primary-soft;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full bg-primary-soft px-2.5 py-1 text-xs text-primary-deep;
+  }
+  /* 输入框统一外观：44px 高度保证手机上点得准 */
+  .input {
+    @apply min-h-[44px] w-full rounded-btn border border-line bg-surface px-3 text-base text-ink outline-none transition placeholder:text-ink-weak/70 focus:border-primary;
+  }
+}
+
+/* 路由切换的轻微淡入，别做花哨动效 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
