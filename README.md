@@ -1,0 +1,145 @@
+# 雅言小筑
+
+面向小学生的网络热梗辨析与雅词积累小站：把"梗"讲清楚，把雅词攒下来，用情景挑战和小结反馈把学习闭环跑完。
+
+这是一个课程 / 大创项目，目标不是做成商业产品，而是把一条完整链路做通：**内容 → 交互 → 积分激励 → 家长可见的学习小结**。因此它刻意保持轻量：单个 Node 进程 + 一个 SQLite 文件，克隆下来三条命令就能跑起来，不需要 Docker、MySQL、Redis。
+
+## 功能
+
+| 模块 | 说明 |
+|---|---|
+| 热梗辨析 | 41 条网络热梗词条，含释义、来源、使用场合与替换建议 |
+| 雅词积累 | 49 个雅词，可展开看例句与近义表达 |
+| 每日一句 | 87 句，按本地日期轮换 |
+| 情景挑战 | 23 道情景题，每轮抽 10 题；选项位置随机交换，**判分与计时只在服务端** |
+| 积分 | 浏览 2 / 收藏 1 / 闯关 10 / 满分 +5 / 打卡 3 / 连续 7 天 +20，单日上限 20 分 |
+| 徽章 | 6 枚，事件触发即评定，重复判定不会重复发放 |
+| 学习报告 | 三段自动生成的评语 + 一键导出 PNG（桌面下载、手机走系统分享） |
+| 登录 | 手机号 + 验证码；开发期用 Mock 通道，**不发真实短信** |
+
+## 技术栈
+
+- **前端**：Vue 3 + Vite + TypeScript + Vue Router + Pinia + Tailwind CSS 3
+- **后端**：Express 4 + TypeScript + Prisma + SQLite（`tsx` 直接运行 TS，无编译产物）
+- **测试**：Vitest（68 条单元测试），另有接口冒烟与全站走查脚本
+- **部署形态**：单端口（Node 同时提供 API 与前端静态文件）
+
+## 快速开始
+
+### 前提
+
+- Node.js **20 或更高**（开发时使用 22）
+- Git
+- 安装依赖时需要能访问 npm registry
+
+### 三步跑起来
+
+```bash
+# 1. 克隆并安装依赖（postinstall 会自动生成 Prisma Client）
+git clone https://github.com/igopor/Yayan-Bower.git
+cd Yayan-Bower
+npm install
+
+# 2. 配置环境变量并建库（会建表 + 导入 41 词条 / 49 雅词 / 23 题 / 87 句）
+cp .env.example .env          # Windows PowerShell 用：copy .env.example .env
+npm run db:reset
+
+# 3. 构建前端并启动
+npm run demo
+```
+
+然后浏览器打开 **<http://localhost:3000>**。
+
+`npm run demo` 等于 `npm run build && npm start`：先构建前端到 `web/dist`，再由 Node 在 3000 端口同时提供页面和 API。想要热更新开发：
+
+```bash
+npm run dev    # 3000 接口 + 5173 前端，改代码自动刷新
+```
+
+## 怎么登录（第一次跑必看）
+
+因为没有短信资质，项目用 Mock 通道，**不会真的发短信**：
+
+1. 手机号填任意合法号段的 11 位数字，例如 `13800000001`
+2. 点「获取验证码」——验证码会被**自动填入**
+3. 如果没有自动填，手输固定验证码 **`123456`**
+4. **必须勾选**「我已阅读并同意《隐私说明》」再点登录。这是面向未成年人的产品设计，服务端也会校验，不勾选直接拒绝（`POST /auth/sms/login` 要求 `agreed: true`）
+
+首次登录的手机号会自动建号，没有单独的注册流程。
+
+## 常用命令
+
+| 命令 | 作用 |
+|---|---|
+| `npm run dev` | 开发模式：3000 接口 + 5173 前端（热更新） |
+| `npm run demo` | 生产模式：构建前端后单端口 3000 跑全站（演示用这个） |
+| `npm run build` | 只构建前端到 `web/dist` |
+| `npm start` | 只启动服务（假设已构建） |
+| `npm test` | 跑 68 条单元测试 |
+| `npm run db:reset` | **重建数据库**：清库 + 建表 + 导入素材（会删掉已有数据） |
+| `npm run db:seed` | 只导入素材，不清库 |
+| `npm run db:studio` | 打开 Prisma Studio 可视化查看数据 |
+
+> 素材有改动时，改 `server/prisma/data/*.json` 后重跑 `npm run db:seed` 即可，不需要动数据库。
+
+## 目录结构
+
+```
+.
+├── server/              后端
+│   ├── prisma/
+│   │   ├── schema.prisma    10 张表的模型
+│   │   ├── data/            4 份素材 json（词条/雅词/题库/每日一句）
+│   │   └── seed/import.ts   导入脚本
+│   └── src/
+│       ├── index.ts app.ts env.ts
+│       ├── lib/             地基：db、http、jwt、captcha、validate
+│       ├── middleware/      鉴权
+│       ├── routes/          11 个接口文件
+│       └── services/        业务核心：积分、判分、连续天数、徽章、统计
+├── web/                 前端
+│   └── src/
+│       ├── api/ composables/ stores/ lib/ router/ styles/
+│       ├── components/      10 个复用组件
+│       └── views/           11 个页面
+├── shared/              前后端共用的类型与规则（积分表、徽章定义、报告文案）
+├── tools/               接口冒烟、全站走查、截图脚本
+├── package.json         全部命令在这里
+└── .env.example         环境变量模板
+```
+
+## 环境变量
+
+复制 `.env.example` 为 `.env` 后按需修改：
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `DATABASE_URL` | `file:./dev.db` | SQLite 文件位置，相对 `server/prisma/` |
+| `PORT` | `3000` | 服务端口 |
+| `JWT_SECRET` | `CHANGE-ME-...` | **登录凭证签名密钥，必须换成随机值**（见下） |
+| `JWT_EXPIRES_IN` | `7d` | token 有效期 |
+| `SMS_PROVIDER` | `mock` | `mock` 不发短信；`aliyun` 需自行实现 |
+| `SMS_MOCK_CODE` | `123456` | Mock 通道的固定验证码 |
+| `TZ` | 未设置 | 服务器上建议 `Asia/Shanghai`，否则「每日一句」会在早上 8 点才换 |
+
+**上线前务必替换 `JWT_SECRET`**。它是签发登录凭证的密钥，拿到它就能伪造任意用户的 token，等于绕过验证码直接登录：
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+换掉后已发出的 token 全部失效，用户重新登录一次即可。
+
+## 已知限制
+
+这些是明确的设计取舍，不是遗漏：
+
+- **短信通道是 Mock**。接真实短信需要企业主体 + 网站备案，个人无法申请签名；代码里已把通道抽象成接口，切换只需改 `.env` 并补一个实现类。
+- **验证码存在进程内存**，只适合单实例。若用 pm2 cluster 多进程部署，需换成 Redis 或数据库表。
+- **单 access token，无 refresh**。7 天过期后重新收一次验证码，对这个场景够用。
+- **微信登录未开放**（入口置灰）：需要企业主体资质与网站备案。
+- 素材是静态文件，没有后台管理界面。
+
+## 说明
+
+本项目为课程 / 大创作品，用于教学与展示。素材由项目组整理，仅供学习交流；如需引用请注明出处。
