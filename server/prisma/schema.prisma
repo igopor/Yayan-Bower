@@ -21,6 +21,7 @@ model User {
   points    PointRecord[]
   favorites Favorite[]
   badges    UserBadge[]
+  aiSummaries AiSummary[]
 
   @@map("user")
 }
@@ -166,4 +167,26 @@ model UserBadge {
 
   @@unique([userId, badgeCode])
   @@map("user_badge")
+}
+
+// ── AI 小结缓存 ─────────────────────────────────────
+/// 一天一条。存在的唯一目的是**别重复调用模型**：
+/// 模型调用要钱、要等、可能失败，而报告页一天里会被反复打开。
+/// signature 是当天那套数字的指纹，数据变了才重新生成（详见 services/ai-summary.ts）。
+model AiSummary {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  /// 本地时区日期键 YYYY-MM-DD（不能用 UTC，否则早 8 点前会算成前一天）
+  dateKey   String
+  /// JSON 字符串：{ summary, suggestions }。SQLite 没有原生 Json 类型
+  content   String
+  model     String   @default("")
+  signature String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@map("ai_summary")
 }

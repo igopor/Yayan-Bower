@@ -5,10 +5,10 @@ import AppCard from '@/components/AppCard.vue'
 import AppLoading from '@/components/AppLoading.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useAuthStore } from '@/stores/auth'
-import { fetchReportSummary } from '@/api/mine'
+import { fetchAiSummary, fetchReportSummary } from '@/api/mine'
 import { exportElementAsPng, reportFileName } from '@/lib/export-image'
 import { toast } from '@/composables/useToast'
-import type { ReportSummaryView } from '@shared/index'
+import type { AiSummaryView, ReportSummaryView } from '@shared/index'
 
 /**
  * 家校反馈。
@@ -18,6 +18,9 @@ import type { ReportSummaryView } from '@shared/index'
  *
  * 三段文案（优势 / 待加强 / 建议）由服务端生成，前端只渲染 —— 规则集中在
  * `shared/report-text.ts`，那样才能单测"任意数据组合都不出硬伤"。
+ *
+ * AI 小结是**后到的**：先画数字，再单独请求 AI（见 loadAi）。它失败时整块不显示，
+ * 页面照旧完整——这块是增强，不是依赖。
  */
 
 const auth = useAuthStore()
@@ -27,6 +30,9 @@ const loading = ref(false)
 const error = ref('')
 const exporting = ref(false)
 const reportRef = ref<HTMLElement | null>(null)
+
+const ai = ref<AiSummaryView | null>(null)
+const aiLoading = ref(false)
 
 const stats = computed(() => data.value?.stats ?? null)
 const text = computed(() => data.value?.text ?? null)
@@ -44,12 +50,15 @@ const dateLabel = computed(() => {
 async function load() {
   if (!auth.isLoggedIn) {
     data.value = null
+    ai.value = null
     return
   }
   loading.value = true
   error.value = ''
   try {
     data.value = await fetchReportSummary()
+    // 数字已经能看了，AI 让它在后台慢慢来
+    void loadAi()
   } catch (e) {
     error.value = (e as Error).message || '生成失败，请稍后重试'
   } finally {
@@ -57,8 +66,34 @@ async function load() {
   }
 }
 
+/**
+ * 取 AI 小结。
+ *
+ * 三种结局都当"正常"处理，不弹错误：
+ * - 有内容（model / mock）→ 显示卡片；
+ * - `unavailable`（未开启或模型调用失败）→ 不显示卡片，页面照旧；
+ * - 请求本身失败（断网）→ 同上，只在控制台留一条。
+ * 只有用户主动点「重新生成」却没拿到内容时，才给他一句提示——
+ * 那时候他是在等一个回应，静默会让人以为按钮坏了。
+ */
+async function loadAi(force = false) {
+  aiLoading.value = true
+  try {
+    const r = await fetchAiSummary(force)
+    ai.value = r.source === 'unavailable' ? null : r
+    if (force && r.source === 'unavailable') {
+      toast.bad('AI 小结暂时不可用，稍后再试')
+    }
+  } catch (e) {
+    console.warn('[report] AI 小结获取失败', e)
+    if (force) toast.bad('AI 小结暂时不可用，稍后再试')
+  } finally {
+    aiLoading.value = false
+  }
+}
+
 async function saveImage() {
-  if (!reportRef.value || !stats.value || exporting.value) return
+  if (!reportRef.value || !stats.value || exporting.value || aiLoading.value) return
   exporting.value = true
   try {
     const r = await exportElementAsPng(reportRef.value, reportFileName(stats.value.nickname))
@@ -169,6 +204,43 @@ watch(() => auth.isLoggedIn, () => void load())
             </div>
           </div>
 
+          <!--
+            AI 小结。在导出区内，所以会出现在图里 —— 家长转出去的那张图上，
+            这一段往往是最先被读的。
+            `ai` 为空（AI 未启用 / 调用失败）时整块不渲染，页面和没有这个功能时完全一样。
+          -->
+          <div
+            v-if="aiLoading || ai"
+            class="mt-4 rounded-btn border border-primary/30 bg-primary-soft/40 p-3"
+          >
+            <div class="flex items-baseline justify-between gap-2">
+              <h3 class="text-sm font-semibold text-primary-deep">AI 小结</h3>
+              <span
+                v-if="ai"
+                class="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[10px] text-ink-weak"
+              >
+                {{ ai.source === 'mock' ? '演示' : 'AI 生成' }}
+              </span>
+            </div>
+
+            <template v-if="ai">
+              <p class="mt-1.5 text-sm leading-6 text-ink">{{ ai.summary }}</p>
+              <ul v-if="ai.suggestions.length" class="mt-1.5 space-y-1">
+                <li v-for="(s, i) in ai.suggestions" :key="`ai${i}`" class="text-sm leading-6 text-ink">
+                  · {{ s }}
+                </li>
+              </ul>
+            </template>
+
+            <div v-else class="mt-2 space-y-1.5" aria-hidden="true">
+              <div class="h-3 w-full animate-pulse rounded bg-white/70"></div>
+              <div class="h-3 w-5/6 animate-pulse rounded bg-white/70"></div>
+              <div class="h-3 w-2/3 animate-pulse rounded bg-white/70"></div>
+            </div>
+
+            <p class="mt-2 text-[10px] text-ink-weak/80">本段由 AI 根据本页数据生成，仅供参考</p>
+          </div>
+
           <footer class="mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-ink-weak">
             <span>连续 {{ stats.streak }} 天 · 累计 {{ stats.totalPoints }} 分 · {{ stats.badgeCount }} 枚徽章</span>
             <span class="shrink-0">雅言小筑</span>
@@ -178,14 +250,26 @@ watch(() => auth.isLoggedIn, () => void load())
         <button
           type="button"
           class="btn-primary mt-4 w-full"
-          :disabled="exporting"
+          :disabled="exporting || aiLoading"
           @click="saveImage"
         >
-          {{ exporting ? '正在生成图片…' : '保存为图片' }}
+          {{ exporting ? '正在生成图片…' : aiLoading ? 'AI 小结生成中…' : '保存为图片' }}
         </button>
         <p class="mt-2 text-center text-xs text-ink-weak/80">
-          手机上会弹出分享面板，选「存储图像」即可存到相册；电脑上会直接下载。
+          <template v-if="aiLoading">等 AI 小结写完再导出，否则图里会缺这一段。</template>
+          <template v-else>手机上会弹出分享面板，选「存储图像」即可存到相册；电脑上会直接下载。</template>
         </p>
+
+        <!-- 卡片之外的重生成入口：放在导出区外，导出的图上不会出现一个按钮 -->
+        <button
+          v-if="ai"
+          type="button"
+          class="mt-1 flex min-h-9 w-full items-center justify-center text-xs text-ink-weak disabled:opacity-50"
+          :disabled="aiLoading"
+          @click="loadAi(true)"
+        >
+          重新生成 AI 小结
+        </button>
 
         <RouterLink to="/mine" class="mt-2 flex min-h-9 items-center justify-center text-xs text-primary">
           去「我的」看徽章和收藏 →

@@ -44,6 +44,22 @@ export interface ReportSummaryView {
   text: ReportTextView
 }
 
+/**
+ * AI 小结。
+ *
+ * `source` 是这三态而不是一个布尔值，因为它要同时表达三件不同的事：
+ * 卡片显不显示（unavailable 不显示）、要不要标"演示"（mock 要标）、
+ * 内容可信度（model 才是真模型写的）。前端只判断这一个字段。
+ */
+export interface AiSummaryView {
+  summary: string
+  suggestions: string[]
+  source: 'model' | 'mock' | 'unavailable'
+  /** 是否来自当天缓存（同一份数据不重复调用模型，省钱也防刷） */
+  cached: boolean
+  generatedAt: string
+}
+
 /** 各段最多几句。多了家长不看，图也放不下 */
 const MAX_STRENGTHS = 3
 const MAX_IMPROVEMENTS = 2

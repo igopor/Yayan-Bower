@@ -14,14 +14,15 @@
 | 情景挑战 | 23 道情景题，每轮抽 10 题；选项位置随机交换，**判分与计时只在服务端** |
 | 积分 | 浏览 2 / 收藏 1 / 闯关 10 / 满分 +5 / 打卡 3 / 连续 7 天 +20，单日上限 20 分 |
 | 徽章 | 6 枚，事件触发即评定，重复判定不会重复发放 |
-| 学习报告 | 三段自动生成的评语 + 一键导出 PNG（桌面下载、手机走系统分享） |
+| 学习报告 | 三段自动生成的评语 + AI 小结（可选）+ 一键导出 PNG（桌面下载、手机走系统分享） |
+| AI 小结 | 根据学习数据生成一段总结与建议；**未配置 API key 时自动隐藏，不影响其他功能** |
 | 登录 | 手机号 + 验证码；开发期用 Mock 通道，**不发真实短信** |
 
 ## 技术栈
 
 - **前端**：Vue 3 + Vite + TypeScript + Vue Router + Pinia + Tailwind CSS 3
 - **后端**：Express 4 + TypeScript + Prisma + SQLite（`tsx` 直接运行 TS，无编译产物）
-- **测试**：Vitest（68 条单元测试），另有接口冒烟与全站走查脚本
+- **测试**：Vitest（90 条单元测试），另有接口冒烟与全站走查脚本
 - **部署形态**：单端口（Node 同时提供 API 与前端静态文件）
 
 ## 快速开始
@@ -67,6 +68,33 @@ npm run dev    # 3000 接口 + 5173 前端，改代码自动刷新
 
 首次登录的手机号会自动建号，没有单独的注册流程。
 
+## AI 小结（可选，默认不联网）
+
+家校反馈页底下有一块「AI 小结」：根据这个账号的浏览数、闯关正确率、错题类型等**聚合数字**，生成一段给家长看的总结与 2–3 条建议。
+
+**默认 `AI_PROVIDER=mock`，不联网、不花钱**，内容由本地规则生成，卡片角标显示「演示」。这样克隆下来就能看到完整效果，不需要任何 key。
+
+要接真实模型，改 `.env` 三行：
+
+```bash
+AI_PROVIDER="openai"
+AI_API_KEY="sk-..."                      # 你的 key
+AI_BASE_URL="https://api.deepseek.com/v1" # 任何 OpenAI 兼容接口都行
+AI_MODEL="deepseek-chat"
+```
+
+重启服务即可，代码一行不用改。
+
+**关于 key 的安全**（这块容易被忽略，但它是本仓库公开的前提）：
+
+- key **只在服务端 `.env`**，`.env` 已在 `.gitignore` 里；前端只调用本站 `/api/report/ai-summary`，由服务端代为请求模型厂商。**浏览器永远拿不到 key**。
+- key 不进日志、不进错误信息，启动日志只打印模型名。
+- 缺 key 时 `openai` 通道会**自动降级为关闭**并打一条警告，不会带着空 key 去请求，也不会让服务起不来。
+- 出站只发聚合数字，手机号、昵称都不进 prompt。
+- 同一份数据一天只调一次（结果缓存在 `ai_summary` 表），单人单日真实调用上限 20 次，防止页面刷新被当成免费代理刷额度。
+
+**调用失败会怎样**：不报错、不占位。接口返回 `source: "unavailable"`，前端整块不显示，报告页那堆数字和三段文案完全正常。**AI 挂了功能不会挂**——这是这个模块的设计前提，也是它敢做成默认开关的原因。
+
 ## 常用命令
 
 | 命令 | 作用 |
@@ -75,7 +103,7 @@ npm run dev    # 3000 接口 + 5173 前端，改代码自动刷新
 | `npm run demo` | 生产模式：构建前端后单端口 3000 跑全站（演示用这个） |
 | `npm run build` | 只构建前端到 `web/dist` |
 | `npm start` | 只启动服务（假设已构建） |
-| `npm test` | 跑 68 条单元测试 |
+| `npm test` | 跑 90 条单元测试 |
 | `npm run db:reset` | **重建数据库**：清库 + 建表 + 导入素材（会删掉已有数据） |
 | `npm run db:seed` | 只导入素材，不清库 |
 | `npm run db:studio` | 打开 Prisma Studio 可视化查看数据 |
@@ -88,7 +116,7 @@ npm run dev    # 3000 接口 + 5173 前端，改代码自动刷新
 .
 ├── server/              后端
 │   ├── prisma/
-│   │   ├── schema.prisma    10 张表的模型
+│   │   ├── schema.prisma    11 张表的模型
 │   │   ├── data/            4 份素材 json（词条/雅词/题库/每日一句）
 │   │   └── seed/import.ts   导入脚本
 │   └── src/
@@ -96,7 +124,7 @@ npm run dev    # 3000 接口 + 5173 前端，改代码自动刷新
 │       ├── lib/             地基：db、http、jwt、captcha、validate
 │       ├── middleware/      鉴权
 │       ├── routes/          11 个接口文件
-│       └── services/        业务核心：积分、判分、连续天数、徽章、统计
+│       └── services/        业务核心：积分、判分、连续天数、徽章、统计、AI 小结
 ├── web/                 前端
 │   └── src/
 │       ├── api/ composables/ stores/ lib/ router/ styles/
@@ -120,6 +148,11 @@ npm run dev    # 3000 接口 + 5173 前端，改代码自动刷新
 | `JWT_EXPIRES_IN` | `7d` | token 有效期 |
 | `SMS_PROVIDER` | `mock` | `mock` 不发短信；`aliyun` 需自行实现 |
 | `SMS_MOCK_CODE` | `123456` | Mock 通道的固定验证码 |
+| `AI_PROVIDER` | `mock` | `off` 关闭 AI 小结；`mock` 演示（不联网）；`openai` 调真实模型 |
+| `AI_API_KEY` | 空 | 仅 `openai` 通道需要，**只放在服务端 `.env`** |
+| `AI_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI 兼容接口地址（DeepSeek / 通义 / 智谱 / Kimi / 本地 Ollama 均可） |
+| `AI_MODEL` | `deepseek-chat` | 模型名 |
+| `AI_TIMEOUT_MS` | `8000` | 单次调用超时，超时即降级（报告页不显示 AI 卡片） |
 | `TZ` | 未设置 | 服务器上建议 `Asia/Shanghai`，否则「每日一句」会在早上 8 点才换 |
 
 **上线前务必替换 `JWT_SECRET`**。它是签发登录凭证的密钥，拿到它就能伪造任意用户的 token，等于绕过验证码直接登录：
