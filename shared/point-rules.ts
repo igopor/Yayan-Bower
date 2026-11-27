@@ -1,5 +1,14 @@
 import type { PointBizType } from './index'
 
+/**
+ * 语言测评提交成功给分。
+ *
+ * 同一天只加一次（bizId 用日期键做幂等），且**不占浏览类的 20 分额度**：
+ * 下面的 VIEW_BIZ_TYPES 是白名单，只要不把 ASSESSMENT 加进去，上限判断天然不管它。
+ * 所以 points.ts 一行都不用改。
+ */
+export const ASSESSMENT_SUCCESS = 2
+
 /** 分值表：改数值只改这里，业务代码不动 */
 export const POINT_RULES: Record<PointBizType, number> = {
   TERM_VIEW: 2,
@@ -9,6 +18,7 @@ export const POINT_RULES: Record<PointBizType, number> = {
   QUIZ_PERFECT: 5,
   DAILY_CHECKIN: 3,
   STREAK_BONUS: 20,
+  ASSESSMENT: ASSESSMENT_SUCCESS,
 }
 
 /** 浏览类（词条/雅词）每日合计上限 */

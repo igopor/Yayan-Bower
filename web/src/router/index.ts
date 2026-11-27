@@ -20,6 +20,7 @@ export const router = createRouter({
     { path: '/quiz/play', name: 'quiz-play', component: () => import('@/views/QuizPlay.vue'), meta: { title: '答题中', level: 'secondary' } },
     { path: '/quiz/result', name: 'quiz-result', component: () => import('@/views/QuizResult.vue'), meta: { title: '本轮结果', level: 'secondary' } },
     { path: '/report', name: 'report', component: () => import('@/views/Report.vue'), meta: { title: '家校反馈', level: 'secondary' } },
+    { path: '/assessment', name: 'assessment', component: () => import('@/views/Assessment.vue'), meta: { title: '语言测评', level: 'secondary' } },
 
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录' } },
     { path: '/privacy', name: 'privacy', component: () => import('@/views/Privacy.vue'), meta: { title: '隐私说明' } },

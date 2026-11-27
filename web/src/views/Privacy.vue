@@ -40,6 +40,12 @@ import AppCard from '@/components/AppCard.vue'
               （用于连续打卡）。
             </li>
             <li>
+              <strong class="text-ink">语言测评写的内容</strong>：你在测评页写的那段话，会临时发送给
+              为我们提供 AI 分析能力的模型服务商，仅用于生成这次的四维评价。
+              <strong class="text-ink">本站服务器不保存原文</strong>，结果只留在你自己的浏览器里，
+              换设备或清除浏览器数据后就看不到了。
+            </li>
+            <li>
               <strong class="text-ink">我们不收集</strong>：位置、通讯录、相册、设备通讯记录、
               其它 App 的使用情况，也不使用第三方广告或统计 SDK。
             </li>
@@ -59,7 +65,12 @@ import AppCard from '@/components/AppCard.vue'
         <section>
           <h2 class="text-base font-semibold text-ink">三、我们不会做什么</h2>
           <ul class="mt-2 space-y-1.5 text-ink-weak">
-            <li>不向任何第三方出售、出租或共享你的手机号与学习记录。</li>
+            <li>
+              不向任何第三方出售、出租或共享你的手机号与学习记录。
+              <strong class="text-ink">只有一个例外</strong>：使用「家校反馈」的 AI 小结和「语言测评」时，
+              会向模型服务商发送去掉手机号后的汇总数字（小结），或你写的那段文字（测评），
+              仅用于当场生成内容。这不是出售或共享，也不附带任何能识别你身份的信息。
+            </li>
             <li>不发送营销短信、不做广告推送、不做用户画像投放。</li>
             <li>不会把学习记录公开给其他用户看到。</li>
           </ul>
@@ -68,7 +79,10 @@ import AppCard from '@/components/AppCard.vue'
         <section>
           <h2 class="text-base font-semibold text-ink">四、保存多久、存在哪里</h2>
           <ul class="mt-2 space-y-1.5 text-ink-weak">
-            <li>数据保存在我们自己管理的服务器上，不放在第三方网盘或公开的数据库里。</li>
+            <li>
+              数据保存在我们自己管理的服务器上，不放在第三方网盘或公开的数据库里。
+              语言测评的原文不会被保存到硬盘或数据库，只在你提交的那一次请求中存在。
+            </li>
             <li>账号存续期间保留；你要求删除后，我们会在 7 个工作日内清除账号与学习记录。</li>
             <li>验证码 5 分钟内有效，过期即失效，不长期保存。</li>
           </ul>

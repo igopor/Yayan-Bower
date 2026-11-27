@@ -204,6 +204,7 @@ export type PointBizType =
   | 'QUIZ_PERFECT'
   | 'DAILY_CHECKIN'
   | 'STREAK_BONUS'
+  | 'ASSESSMENT'
 
 /** 没加成分的原因，前端据此给不同提示 */
 export type GrantReason = 'ok' | 'duplicate' | 'daily_cap'
@@ -299,3 +300,4 @@ export const ERR = {
 export * from './point-rules'
 export * from './badges'
 export * from './report-text'
+export * from './assessment'

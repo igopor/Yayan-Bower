@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { z } from 'zod'
+import { ASSESS_MAX_CHARS_DEFAULT } from '../../shared/assessment'
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -25,6 +26,17 @@ const schema = z.object({
   AI_MODEL: z.string().default('deepseek-chat'),
   /** 单次调用超时。超过就降级，绝不让报告页卡在一个转圈上 */
   AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(8000),
+
+  /**
+   * ── 语言测评 ──────────────────────────────────────
+   *
+   * 每天次数上限：真实模型调用按这个算。mock 通道会自动放宽（见 assessment.ts），
+   * 否则答辩现场试十次就被锁在"明天再来"，而 mock 本身一分钱不花。
+   *
+   * 字数上限：下限固定 30（少于 30 字看不出表达特点），不做配置。
+   */
+  ASSESS_DAILY_LIMIT: z.coerce.number().int().min(1).max(100).default(10),
+  ASSESS_MAX_CHARS: z.coerce.number().int().min(100).max(2000).default(ASSESS_MAX_CHARS_DEFAULT),
 })
 
 const parsed = schema.safeParse(process.env)

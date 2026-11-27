@@ -9,6 +9,7 @@ import { quizRouter } from './quiz'
 import { checkinRouter } from './checkin'
 import { mineRouter } from './mine'
 import { reportRouter } from './report'
+import { assessmentRouter } from './assessment'
 
 /** 所有接口的统一挂载点 */
 export const apiRouter = Router()
@@ -23,6 +24,7 @@ apiRouter.use('/', quizRouter)
 apiRouter.use('/', checkinRouter)
 apiRouter.use('/', mineRouter)
 apiRouter.use('/', reportRouter)
+apiRouter.use('/', assessmentRouter)
 
 // 未匹配的 /api/* 明确返回 JSON 404，而不是落到前端页面
 apiRouter.use((_req, res) => {

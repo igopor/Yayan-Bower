@@ -16,12 +16,33 @@ import { env } from '../env'
  * 2. 只出现在请求头里，**不进日志、不进错误信息、不返回给浏览器**；
  * 3. 浏览器永远拿不到它——前端调的是本站 `/api/report/ai-summary`，由这里代为请求。
  */
+/**
+ * 一次调用的可调项。
+ *
+ * `system` 与 `maxTokens` 是后加的：原来只服务"AI 小结"这一种输出（两段话，500 token 够）。
+ * 语言测评要输出四维结构化 JSON，一条就 700–1000 token，还用 500 会**必然被截断**，
+ * 截断后 JSON 解析失败、结果永远 unavailable。因此把两者做成可选参数，
+ * 不传时保持原来的默认值 —— 阶段 9 的行为一个字节都不变。
+ */
+export interface LlmCallOptions {
+  timeoutMs: number
+  /** 覆盖默认的 system 提示词 */
+  system?: string
+  /** 覆盖默认的 500。四维 JSON 这类长输出要自己给够 */
+  maxTokens?: number
+}
+
 export interface LlmProvider {
   readonly mode: 'off' | 'mock' | 'remote'
   /** 给人看的通道名，只用于日志 */
   readonly label: string
-  generate(prompt: string, opts: { timeoutMs: number }): Promise<string>
+  generate(prompt: string, opts: LlmCallOptions): Promise<string>
 }
+
+/** 默认 system：阶段 9 的 AI 小结在用，改成常量只是为了能被覆盖 */
+const DEFAULT_SYSTEM = '你是一位耐心、务实的小学语文老师。只输出 JSON，不要任何解释。'
+/** 默认输出上限：一段总评 + 2–3 条建议，500 足够 */
+const DEFAULT_MAX_TOKENS = 500
 
 class OffProvider implements LlmProvider {
   readonly mode = 'off' as const
@@ -50,7 +71,7 @@ class RemoteProvider implements LlmProvider {
     this.label = `${env.AI_MODEL} @ ${new URL(env.AI_BASE_URL).host}`
   }
 
-  async generate(prompt: string, opts: { timeoutMs: number }): Promise<string> {
+  async generate(prompt: string, opts: LlmCallOptions): Promise<string> {
     const url = `${env.AI_BASE_URL.replace(/\/+$/, '')}/chat/completions`
 
     const res = await fetch(url, {
@@ -62,12 +83,12 @@ class RemoteProvider implements LlmProvider {
       body: JSON.stringify({
         model: env.AI_MODEL,
         messages: [
-          { role: 'system', content: '你是一位耐心、务实的小学语文老师。只输出 JSON，不要任何解释。' },
+          { role: 'system', content: opts.system ?? DEFAULT_SYSTEM },
           { role: 'user', content: prompt },
         ],
         // 低温度：小结要稳，不要每次都换个说法，也不要在数字上发挥
         temperature: 0.4,
-        max_tokens: 500,
+        max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
       }),
       // 超时即中断，避免报告页挂在一个不返回的请求上
       signal: AbortSignal.timeout(opts.timeoutMs),

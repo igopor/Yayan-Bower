@@ -29,6 +29,7 @@ const ROUTES = [
   { path: '/elegant', name: 'elegant', label: '雅词积累' },
   { path: '/quiz', name: 'quiz', label: '情景挑战入口' },
   { path: '/report', name: 'report', label: '家校反馈' },
+  { path: '/assessment', name: 'assessment', label: '语言测评' },
   { path: '/mine', name: 'mine', label: '我的' },
   { path: '/privacy', name: 'privacy', label: '隐私说明' },
   { path: '/no-such-page', name: '404', label: '不存在页' },
