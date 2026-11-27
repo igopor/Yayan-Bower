@@ -42,7 +42,7 @@ git clone https://github.com/igopor/Yayan-Bower.git
 cd Yayan-Bower
 npm install
 
-# 2. 配置环境变量并建库（会建表 + 导入 41 词条 / 49 雅词 / 23 题 / 87 句）
+# 2. 配置环境变量并建库（建表 + 导入 41 条辨析 / 49 条雅词 / 23 题 / 87 句；term 主表合计 77 行）
 cp .env.example .env          # Windows PowerShell 用：copy .env.example .env
 npm run db:reset
 
@@ -92,11 +92,12 @@ AI_MODEL="deepseek-chat"
 
 **关于 key 的安全**（这块容易被忽略，但它是本仓库公开的前提）：
 
-- key **只在服务端 `.env`**，`.env` 已在 `.gitignore` 里；前端只调用本站 `/api/report/ai-summary`，由服务端代为请求模型厂商。**浏览器永远拿不到 key**。
+- key **只在服务端 `.env`**，`.env` 已在 `.gitignore` 里；前端只调用本站接口（`/api/report/ai-summary`、`/api/assessment`），由服务端代为请求模型厂商。**浏览器永远拿不到 key**。
 - key 不进日志、不进错误信息，启动日志只打印模型名。
 - 缺 key 时 `openai` 通道会**自动降级为关闭**并打一条警告，不会带着空 key 去请求，也不会让服务起不来。
-- 出站只发聚合数字，手机号、昵称都不进 prompt。
-- 同一份数据一天只调一次（结果缓存在 `ai_summary` 表），单人单日真实调用上限 20 次，防止页面刷新被当成免费代理刷额度。
+- **AI 小结**出站只发聚合数字（词条数、正确率、错题类型等），手机号、昵称、具体词条名都不进 prompt。
+- **语言测评**会把孩子写的那段原文发给模型，但**不落库、不进日志**，提交前还会拦截手机号；不想发就 `AI_PROVIDER=off`。
+- AI 小结同一份数据一天只调一次（结果缓存在 `ai_summary` 表），单人单日真实调用上限 20 次，防止页面刷新被当成免费代理刷额度；测评不缓存、每次真实调用，按 `ASSESS_DAILY_LIMIT` 限次。
 
 **调用失败会怎样**：不报错、不占位。接口返回 `source: "unavailable"`，前端整块不显示，报告页那堆数字和三段文案完全正常。**AI 挂了功能不会挂**——这是这个模块的设计前提，也是它敢做成默认开关的原因。
 
@@ -141,14 +142,14 @@ AI_MODEL="deepseek-chat"
 │       ├── index.ts app.ts env.ts
 │       ├── lib/             地基：db、http、jwt、captcha、validate
 │       ├── middleware/      鉴权
-│       ├── routes/          12 个接口文件
+│       ├── routes/          11 个接口文件（另有 index.ts 汇总挂载）
 │       └── services/        业务核心：积分、判分、连续天数、徽章、统计、AI 小结、语言测评
 ├── web/                 前端
 │   └── src/
 │       ├── api/ composables/ stores/ lib/ router/ styles/
-│       ├── components/      10 个复用组件
-│       └── views/           12 个页面
-├── shared/              前后端共用的类型与规则（积分表、徽章定义、报告文案）
+│       ├── components/      11 个复用组件
+│       └── views/           11 个页面 + 404 兜底
+├── shared/              前后端共用的类型与规则（积分表、徽章定义、报告文案、测评四维）
 ├── tools/               接口冒烟、全站走查、截图脚本
 ├── package.json         全部命令在这里
 └── .env.example         环境变量模板
@@ -166,7 +167,7 @@ AI_MODEL="deepseek-chat"
 | `JWT_EXPIRES_IN` | `7d` | token 有效期 |
 | `SMS_PROVIDER` | `mock` | `mock` 不发短信；`aliyun` 需自行实现 |
 | `SMS_MOCK_CODE` | `123456` | Mock 通道的固定验证码 |
-| `AI_PROVIDER` | `mock` | `off` 关闭 AI 小结；`mock` 演示（不联网）；`openai` 调真实模型 |
+| `AI_PROVIDER` | `mock` | `off` 关闭全部 AI 功能（小结 + 测评，首页第 5 卡置灰）；`mock` 演示（不联网）；`openai` 调真实模型 |
 | `AI_API_KEY` | 空 | 仅 `openai` 通道需要，**只放在服务端 `.env`** |
 | `AI_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI 兼容接口地址（DeepSeek / 通义 / 智谱 / Kimi / 本地 Ollama 均可） |
 | `AI_MODEL` | `deepseek-chat` | 模型名 |
@@ -191,6 +192,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 - **验证码存在进程内存**，只适合单实例。若用 pm2 cluster 多进程部署，需换成 Redis 或数据库表。
 - **单 access token，无 refresh**。7 天过期后重新收一次验证码，对这个场景够用。
 - **微信登录未开放**（入口置灰）：需要企业主体资质与网站备案。
+- **语言测评的每日次数记在进程内存**，重启清零。防手滑够用，防恶意要靠网关；多进程部署需换成共享存储。
+- **测评结果依赖模型**：`AI_PROVIDER=off` 时整张卡置灰、接口不调用；例句采用"去标点后必须是原文子串"的核验，模型改写一个字就会被清空，可能出现某一维没有例句——这是宁缺毋滥，不是故障。
 - 素材是静态文件，没有后台管理界面。
 
 ## 说明
